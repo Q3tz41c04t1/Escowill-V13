@@ -23,7 +23,7 @@
 
 from odoo import models, api, fields, _
 from odoo.tools import float_compare
-from odoo.exceptions import ValidationError, UserError
+from odoo.exceptions import ValidationError
 
 
 class SaleOrder(models.Model):
@@ -84,9 +84,11 @@ class SaleOrderLine(models.Model):
             total_pkg = line.total_packages
             count_qty = 0
             delivered_pkg = 0
-            for picking in line.order_id.picking_ids:  # .search([('state', '=', 'done')]):
+            # .search([('state', '=', 'done')]):
+            for picking in line.order_id.picking_ids:
                 if picking.state == 'done':
-                    for move_line in picking.move_line_ids:  # .search([('product_id', '=', line.product_id.id)]):
+                    # .search([('product_id', '=', line.product_id.id)]):
+                    for move_line in picking.move_line_ids:
                         if move_line.product_id.id == line.product_id.id:
                             count_qty += move_line.qty_done
                             delivered_pkg += 1
@@ -176,7 +178,8 @@ class SaleOrderLine(models.Model):
         sale order line. procurement group will launch '_run_pull', '_run_buy' or '_run_manufacture'
         depending on the sale order line product rule.
         """
-        precision = self.env['decimal.precision'].precision_get('Product Unit of Measure')
+        precision = self.env['decimal.precision'].precision_get(
+            'Product Unit of Measure')
         procurements = []
         for line in self:
             route_ids = line.product_id.route_ids
@@ -190,7 +193,7 @@ class SaleOrderLine(models.Model):
             else:
                 continue
 
-            if line.state != 'sale' or not line.product_id.type in ('consu','product'):
+            if line.state != 'sale' or not line.product_id.type in ('consu', 'product'):
                 continue
             qty = line._get_qty_procurement(previous_product_uom_qty)
             if float_compare(qty, line.product_uom_qty, precision_digits=precision) >= 0:
@@ -198,16 +201,19 @@ class SaleOrderLine(models.Model):
 
             group_id = line._get_procurement_group()
             if not group_id:
-                group_id = self.env['procurement.group'].create(line._prepare_procurement_group_vals())
+                group_id = self.env['procurement.group'].create(
+                    line._prepare_procurement_group_vals())
                 line.order_id.procurement_group_id = group_id
             else:
                 # In case the procurement group is already created and the order was
                 # cancelled, we need to update certain values of the group.
                 updated_vals = {}
                 if group_id.partner_id != line.order_id.partner_shipping_id:
-                    updated_vals.update({'partner_id': line.order_id.partner_shipping_id.id})
+                    updated_vals.update(
+                        {'partner_id': line.order_id.partner_shipping_id.id})
                 if group_id.move_type != line.order_id.picking_policy:
-                    updated_vals.update({'move_type': line.order_id.picking_policy})
+                    updated_vals.update(
+                        {'move_type': line.order_id.picking_policy})
                 if updated_vals:
                     group_id.write(updated_vals)
 
@@ -216,7 +222,8 @@ class SaleOrderLine(models.Model):
 
             line_uom = line.product_uom
             quant_uom = line.product_id.uom_id
-            product_qty, procurement_uom = line_uom._adjust_uom_quantities(product_qty, quant_uom)
+            product_qty, procurement_uom = line_uom._adjust_uom_quantities(
+                product_qty, quant_uom)
             procurements.append(self.env['procurement.group'].Procurement(
                 line.product_id, product_qty, procurement_uom,
                 line.order_id.partner_shipping_id.property_stock_customer,

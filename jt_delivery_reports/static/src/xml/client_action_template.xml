@@ -22,7 +22,7 @@
                 <hr class="mb-4 d-none d-sm-block"/>
                 <div>
                     <center>
-                        <button string="Cancel" class="button_close oe_link btn-secondary" special="cancel"/>
+                        <button string="Cancel" class="button_close oe_link btn btn-secondary" special="cancel">Cancel</button>
                     </center>
                 </div>
             </div>

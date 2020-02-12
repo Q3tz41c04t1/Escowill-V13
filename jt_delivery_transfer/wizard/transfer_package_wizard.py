@@ -293,7 +293,6 @@ class TransferPackageWizard(models.TransientModel):
                 domain.append(('package_id.name', '=', package_name))
                 quant = quant_obj.search(domain, limit=1)
 
-                print("QUANT............", quant, domain)
                 if quant and quant.production_id:
 
                     s_id = False
@@ -333,11 +332,10 @@ class TransferPackageWizard(models.TransientModel):
                                   ('location_id.usage', '!=', 'customer')]
                         lines = quant_obj.search(line_d)
                 else:
-                    print("1.............")
                     error_flag = True
             elif mode == 'stock_delivery':
                 orders = self.env['sale.order'].search(
-                    [('state', '=', 'sale'), ('is_stock_product', '=', True)])
+                    [('state', 'in', ('sale', 'done')), ('is_stock_product', '=', True)])
                 product_flag = False
                 for order in orders:
                     for line in order.order_line:
@@ -347,7 +345,6 @@ class TransferPackageWizard(models.TransientModel):
                 if not product_flag:
                     error_flag = True
                     flag_stock_del = True
-                    print("2.............")
 
                 # Set default fields
                 res['st_product_id'] = product.id
@@ -356,9 +353,7 @@ class TransferPackageWizard(models.TransientModel):
                 lines = quant_obj.search(line_domain)
         else:
             error_flag = True
-            print("3.............")
 
-        print(">>>>>>>>>>>>>>>>>>.. ", error_flag)
         if error_flag:
             res['scanned_type'] = 'product'
             res['warn_msg'] = 'Scanned barcode is not match with any package. \n\n Please scan correct package'
@@ -395,10 +390,10 @@ class TransferPackageWizard(models.TransientModel):
         location_obj = self.env['stock.location']
 
         # Unlink quants which has 0 onhand quantity and 0 reserved quantity
-        qs = quant_obj.search(
-            [('package_id', '!=', False), ('quantity', '=', 0), ('reserved_quantity', '=', 0)])
-        for q in qs:
-            q.sudo().unlink()
+        # qs = quant_obj.search(
+        #     [('package_id', '!=', False), ('quantity', '=', 0), ('reserved_quantity', '=', 0)])
+        # for q in qs:
+        #     q.sudo().unlink()
 
         vals = {}
         vals['from_custom_barcode'] = True
@@ -473,7 +468,6 @@ class TransferPackageWizard(models.TransientModel):
                 if group:
                     group_id = group.id
                     vals['group_id'] = group_id
-
                 if warehouse:
                     if self.mode == 'internal_transfer':
                         if warehouse.int_type_id:
@@ -550,6 +544,15 @@ class TransferPackageWizard(models.TransientModel):
                     if warehouse:
                         move_vals['warehouse_id'] = warehouse.id
 
+                    if sl and self.mode == 'stock_delivery':
+                        group = self.env['procurement.group'].sudo().create({
+                            'name': sl.name,
+                            'sale_id': sl.id,
+                            'partner_id': sl.partner_id.id,
+                            'move_type': 'direct'
+                        })
+                        if group:
+                            move_vals['group_id'] = group.id
                     move = move_obj.create(move_vals)
                     picking.action_confirm()
                     picking.action_assign()

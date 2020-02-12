@@ -27,7 +27,6 @@
                         <center>
                             <button name="generate_order_report" string="IIMPRIMIR"
                             type="object" class="oe_highlight" states="choose"/> &#x2063;
-                            
                             <button string="Cancel" class="oe_link btn-secondary" special="cancel" />
                         </center>
                     </footer>

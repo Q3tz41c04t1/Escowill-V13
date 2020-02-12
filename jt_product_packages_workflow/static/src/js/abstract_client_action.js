@@ -20,7 +20,7 @@ odoo.define('jt_product_packages_workflow.picking_client_action', function (requ
             if (this.actionParams.model === 'stock.picking') {
                 this.$('.o_barcode_summary_location_src').toggleClass('o_barcode_summary_location_highlight', false);
                 this.$('.o_barcode_summary_location_dest').toggleClass('o_barcode_summary_location_highlight', false);
-                // this.linesWidget._toggleScanMessage('scan_products');
+                this.linesWidget._toggleScanMessage('scan_products');
             }
             return superr
         },

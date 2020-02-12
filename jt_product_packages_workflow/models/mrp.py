@@ -45,8 +45,10 @@ class MRPProduction(models.Model):
         'res.partner', string='Commercial Partner', domain="[('customer', '=', True)]")
     flag_run_cron = fields.Boolean(string='Flag Run CRON')
     flag_done_production = fields.Boolean(string='Has Done Production?')
-    flag_package_stage = fields.Selection([('create', 'Create Package'), ('done', 'Done Package')], default='create')
-    flag_pack_package_stage = fields.Selection([('create', 'Create Package'), ('done', 'Done Package')], default='create')
+    flag_package_stage = fields.Selection(
+        [('create', 'Create Package'), ('done', 'Done Package')], default='create')
+    flag_pack_package_stage = fields.Selection(
+        [('create', 'Create Package'), ('done', 'Done Package')], default='create')
     flag_done_pack_order = fields.Boolean(string="Flag Done Pack Order?")
 
     def _compute_comm_agent_id(self):
@@ -143,9 +145,9 @@ class MRPProduction(models.Model):
                 total_packages = res.product_qty / pkg_qty
 
             res.todo_packages = total_packages
-            round_check = res.todo_packages / 1000
+            round_check = res.todo_packages / 3000
             if round_check > 1:
-                res.next_package = 1000
+                res.next_package = 3000
             else:
                 res.next_package = res.todo_packages
         return res
@@ -166,18 +168,23 @@ class MRPProduction(models.Model):
         - Calls when POST INVENTORY or MARK AS DONE button clicked
         - Send context with sale and production details
     '''
+
     def post_inventory(self):
         for order in self:
-            moves_not_to_do = order.move_raw_ids.filtered(lambda x: x.state == 'done')
-            moves_to_do = order.move_raw_ids.filtered(lambda x: x.state not in ('done', 'cancel'))
+            moves_not_to_do = order.move_raw_ids.filtered(
+                lambda x: x.state == 'done')
+            moves_to_do = order.move_raw_ids.filtered(
+                lambda x: x.state not in ('done', 'cancel'))
             for move in moves_to_do.filtered(lambda m: m.product_qty == 0.0 and m.quantity_done > 0):
                 move.product_uom_qty = move.quantity_done
             # MRP do not merge move, catch the result of _action_done in order
             # to get extra moves.
             moves_to_do = moves_to_do._action_done()
-            moves_to_do = order.move_raw_ids.filtered(lambda x: x.state == 'done') - moves_not_to_do
+            moves_to_do = order.move_raw_ids.filtered(
+                lambda x: x.state == 'done') - moves_not_to_do
             order._cal_price(moves_to_do)
-            moves_to_finish = order.move_finished_ids.filtered(lambda x: x.state not in ('done', 'cancel'))
+            moves_to_finish = order.move_finished_ids.filtered(
+                lambda x: x.state not in ('done', 'cancel'))
             if order.sale_id:
                 if (self._context.get('final_step')) or order.check_to_done:
                     comm_agent_id = False
@@ -209,13 +216,18 @@ class MRPProduction(models.Model):
             for moveline in moves_to_finish.mapped('move_line_ids'):
                 if moveline.move_id.has_tracking != 'none' and moveline.product_id == order.product_id or moveline.lot_id in consume_move_lines.mapped('lot_produced_ids'):
                     if any([not ml.lot_produced_ids for ml in consume_move_lines]):
-                        raise UserError(_('You can not consume without telling for which lot you consumed it'))
-                    # Link all movelines in the consumed with same lot_produced_ids false or the correct lot_produced_ids
-                    filtered_lines = consume_move_lines.filtered(lambda ml: moveline.lot_id in ml.lot_produced_ids)
-                    moveline.write({'consume_line_ids': [(6, 0, [x for x in filtered_lines.ids])]})
+                        raise UserError(
+                            _('You can not consume without telling for which lot you consumed it'))
+                    # Link all movelines in the consumed with same
+                    # lot_produced_ids false or the correct lot_produced_ids
+                    filtered_lines = consume_move_lines.filtered(
+                        lambda ml: moveline.lot_id in ml.lot_produced_ids)
+                    moveline.write(
+                        {'consume_line_ids': [(6, 0, [x for x in filtered_lines.ids])]})
                 else:
                     # Link with everything
-                    moveline.write({'consume_line_ids': [(6, 0, [x for x in consume_move_lines.ids])]})
+                    moveline.write(
+                        {'consume_line_ids': [(6, 0, [x for x in consume_move_lines.ids])]})
         return True
 
     # Calls when MARK AS DONE button clicked, to send context
@@ -251,9 +263,10 @@ class MRPProduction(models.Model):
                 out_type_id = self.sale_id.warehouse_id and self.sale_id.warehouse_id.out_type_id and \
                     self.sale_id.warehouse_id.out_type_id.id or False
                 for move_line in self.finished_move_line_ids:
-
                     if self.picking_id.picking_type_id.id in [pick_type_id, out_type_id]:
                         # self.picking_id.action_assign_owner()
+                        self.picking_id.move_line_ids.write(
+                            {'owner_id': self.picking_id.owner_id and self.picking_id.owner_id.id or False})
                         if self.sale_id:
                             self.picking_id.with_context(
                                 {'mo': self.picking_id.production_id,
@@ -272,9 +285,9 @@ class MRPProduction(models.Model):
                                         move.done_line_list = str(todo_list)
                             self.todo_pack_packages -= self.next_pack_package
                             # To calculate pick packages
-                            round_check = self.todo_pack_packages / 1000
+                            round_check = self.todo_pack_packages / 3000
                             if round_check > 1:
-                                self.next_pack_package = 1000
+                                self.next_pack_package = 3000
                             else:
                                 self.next_pack_package = self.todo_pack_packages
             else:
@@ -290,15 +303,16 @@ class MRPProduction(models.Model):
                             if len(move.move_dest_ids.ids) > 0:
                                 dest_move = move.move_dest_ids[0]
                             if dest_move:
-                                dest_move.with_context(flag_validate_pack=True)._action_assign()
+                                dest_move.with_context(
+                                    flag_validate_pack=True)._action_assign()
                                 todo_list.remove(todo_list[0])
                                 move.done_line_list = str(todo_list)
 
                             self.todo_pack_packages -= self.next_pack_package
                             # To calculate pick packages
-                            round_check = self.todo_pack_packages / 1000
+                            round_check = self.todo_pack_packages / 3000
                             if round_check > 1:
-                                self.next_pack_package = 1000
+                                self.next_pack_package = 3000
                             else:
                                 self.next_pack_package = self.todo_pack_packages
                 if self.todo_pack_packages == 0:
@@ -315,14 +329,15 @@ class MRPProduction(models.Model):
                 move_line = self.env['stock.move.line'].search([('move_id', '=', move.id), (
                     'picking_id', '=', self.picking_id.id), ('product_id', '=', self.product_id.id)], order='id desc',  limit=1)
             if move_line:
-                self.picking_id.with_context(flag_validate_package=True, line_id=move_line.id, line_owner_id=self.comm_partner_id and self.comm_partner_id.id or False).button_validate()
+                self.picking_id.with_context(flag_validate_package=True, line_id=move_line.id,
+                                             line_owner_id=self.comm_partner_id and self.comm_partner_id.id or False).button_validate()
             self.flag_package_stage = 'create'
             # To calculate pack packages
             if self.todo_packages == 0:
                 self.todo_pack_packages = self.total_packages
-                pack_round_check = self.todo_pack_packages / 1000
+                pack_round_check = self.todo_pack_packages / 3000
                 if pack_round_check > 1:
-                    self.next_pack_package = 1000
+                    self.next_pack_package = 3000
                 else:
                     self.next_pack_package = self.todo_pack_packages
 
@@ -344,15 +359,16 @@ class MRPProduction(models.Model):
                     # Code to create package (Calls Put in pack method)
                     for pkg in range(0, total_pkgs):
                         move_line.qty_done = pkg_qty
-                        pkg_no = (int(self.total_packages - self.todo_packages)) + pkg
+                        pkg_no = (int(self.total_packages -
+                                      self.todo_packages)) + pkg
                         move_line.picking_id.with_context(
                             {'pkg_name': pkg_no + 1, 'mo_id': self.name.replace('/', '')}).put_in_pack()
                     move_line.is_last_line = True
                     self.todo_packages -= self.next_package
                     # To calculate pick packages
-                    round_check = self.todo_packages / 1000
+                    round_check = self.todo_packages / 3000
                     if round_check > 1:
-                        self.next_package = 1000
+                        self.next_package = 3000
                     else:
                         self.next_package = self.todo_packages
                     self.flag_package_stage = 'done'

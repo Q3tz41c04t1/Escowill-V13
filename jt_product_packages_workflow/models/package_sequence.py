@@ -27,7 +27,7 @@ from odoo import models, fields, api
 class PackageSequence(models.Model):
 
     _name = 'package.sequence'
-    _description = 'Sequencee Packages to store in this model to reuse sequence'
+    _description = 'Sequence Packages to store in this model to reuse sequence'
     _rec_name = 'complete_name'
 
     sale_id = fields.Many2one('sale.order', string='Sale Order')

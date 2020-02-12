@@ -52,7 +52,7 @@ class StockQuant(models.Model):
                             res['user_id'] = sequence.sale_id.user_id.id
                     if sequence.manufacturing_order_id:
                         res['production_id'] = sequence.manufacturing_order_id.id
-        self.remove_empty_stock()
+        # self.remove_empty_stock()
         if not res.owner_id:
             if self._context.get('line_owner_id'):
                 res.owner_id = int(self._context.get('line_owner_id'))
@@ -61,7 +61,7 @@ class StockQuant(models.Model):
     def write(self, vals):
         self.ensure_one()
         res = super(StockQuant, self).write(vals)
-        self.remove_empty_stock()
+        # self.remove_empty_stock()
         return res
 
     @api.model

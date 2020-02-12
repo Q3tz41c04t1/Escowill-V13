@@ -42,7 +42,7 @@
                 <form>
                     <script>
                         $(document).ready(function(){
-                            $('.modal-dialog').css({'width': '700px'});
+                            $('.modal-dialog').css({'width': '1000px'});
                         });
                     </script>
                     <field name="scanned_type" invisible="1"/>

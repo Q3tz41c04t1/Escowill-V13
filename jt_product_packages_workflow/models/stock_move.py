@@ -64,7 +64,9 @@ class StockMoveLine(models.Model):
                         'picking_id': picking.id,
                     })
                     vals['move_id'] = new_move.id
-        mls = super(StockMoveLine, self).create(vals_list)
+        if len(vals_list) > 0 and 'company_id' not in vals_list:
+            vals_list[0]['company_id'] = self.env.company.id
+        mls = super(models.Model, self).create(vals_list)
 
         for ml in mls:
             if ml.state == 'done':
@@ -229,7 +231,7 @@ class StockMoveLine(models.Model):
                     ml._log_message(ml.picking_id, ml,
                                     'stock.track_move_template', vals)
 
-        res = super(StockMoveLine, self).write(vals)
+        res = super(models.Model, self).write(vals)
 
         if 'qty_done' in vals:
             for move in self.mapped('move_id'):
@@ -386,21 +388,22 @@ class StockMove(models.Model):
             for move in moves_todo:
                 rounding = self.env['decimal.precision'].precision_get(
                     'Product Unit of Measure')
-                if float_compare(move.quantity_done, move.product_uom_qty, precision_digits=rounding) < 0:
-                    qty_split = move.product_uom._compute_quantity(
-                        move.product_uom_qty - move.quantity_done, move.product_id.uom_id, rounding_method='HALF-UP')
-                    new_move = move._split(qty_split)
-                    for move_line in move.move_line_ids:
-                        if move_line.product_qty and move_line.qty_done:
-                            try:
-                                move_line.write(
-                                    {'product_uom_qty': move_line.qty_done})
-                            except UserError:
-                                pass
-                    move._unreserve_initial_demand(new_move)
-                    if cancel_backorder:
-                        self.env['stock.move'].browse(
-                            new_move)._action_cancel()
+                if not self._context.get('flag_validate_package'):
+                    if float_compare(move.quantity_done, move.product_uom_qty, precision_digits=rounding) < 0:
+                        qty_split = move.product_uom._compute_quantity(
+                            move.product_uom_qty - move.quantity_done, move.product_id.uom_id, rounding_method='HALF-UP')
+                        new_move = move._split(qty_split)
+                        for move_line in move.move_line_ids:
+                            if move_line.product_qty and move_line.qty_done:
+                                try:
+                                    move_line.write(
+                                        {'product_uom_qty': move_line.qty_done})
+                                except UserError:
+                                    pass
+                        move._unreserve_initial_demand(new_move)
+                        if cancel_backorder:
+                            self.env['stock.move'].browse(
+                                new_move)._action_cancel()
 
             slot_line_ids = []
             if not self._context.get('flag_validate_package'):
@@ -625,8 +628,13 @@ class StockMove(models.Model):
                                 move.product_id, location_id, lot_id=lot_id, package_id=package_id, owner_id=owner_id, strict=True)
                             if float_is_zero(available_quantity, precision_rounding=rounding):
                                 continue
-                            taken_quantity = move._update_reserved_quantity(need, min(
-                                quantity, available_quantity), location_id, lot_id, package_id, owner_id)
+
+                            taken_quantity = 0
+                            if move.picking_id and not move.picking_id.active and move.picking_id.picking_type_code == 'outgoing' and move.picking_id.sale_id and move.picking_id.picking_type_id.warehouse_id and move.picking_id.picking_type_id.warehouse_id.delivery_steps == 'pick_pack_ship':
+                                taken_quantity = 0
+                            else:
+                                taken_quantity = move._update_reserved_quantity(need, min(
+                                    quantity, available_quantity), location_id, lot_id, package_id, owner_id)
                             if float_is_zero(taken_quantity, precision_rounding=rounding):
                                 continue
                             if float_is_zero(need - taken_quantity, precision_rounding=rounding):

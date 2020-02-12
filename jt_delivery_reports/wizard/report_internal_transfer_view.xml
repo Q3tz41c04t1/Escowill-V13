@@ -51,7 +51,7 @@
                     <footer>
                         <center>
                             <button name="generate_int_report" type="object" states="choose" class=" btn btn-primary button_pdf">IIMPRIMIR</button> &#160; &#160;
-                            <button class="button_close btn oe_link btn-secondary" special="cancel">CANCELAR</button>
+                            <button string="CANCELAR" class="button_close oe_link btn-secondary" special="cancel" />
                         </center>
                     </footer>
                 </form>

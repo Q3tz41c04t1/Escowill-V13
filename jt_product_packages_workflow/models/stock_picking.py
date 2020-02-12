@@ -98,7 +98,12 @@ class StockPicking(models.Model):
             if pick.owner_id:
                 pick.move_lines.write(
                     {'restrict_partner_id': pick.owner_id.id})
-                pick.move_line_ids.write({'owner_id': pick.owner_id.id})
+                # move_lines = []
+                # for line in pick.move_line_ids:
+                #     if not line.is_last_line:
+                #         move_lines.append(line.id)
+                # move_lines = self.env['stock.move.line'].browse(move_lines)
+                # move_lines.write({'owner_id': pick.owner_id.id})
             for ops in pick.move_line_ids.filtered(lambda x: not x.move_id):
                 moves = pick.move_lines.filtered(
                     lambda x: x.product_id == ops.product_id)
@@ -240,95 +245,92 @@ class StockPicking(models.Model):
             else:
                 return super(StockPicking, self).button_validate()
 
-    # def get_barcode_view_state(self):
-    #     """ Return the initial state of the barcode view as a dict.
-    #     """
-    #     # fields_to_read = self._get_picking_fields_to_read()
-    #     pickings = self.read([
-    #         'package_ids',
-    #         'move_line_ids',
-    #         'picking_type_id',
-    #         'location_id',
-    #         'location_dest_id',
-    #         'name',
-    #         'state',
-    #         'picking_type_code',
-    #     ])
-    #     pickings = self.read(pickings)
-    #     for picking in pickings:
-    #         picking['package_ids'] = self.env['stock.quant.package'].browse(picking.pop('package_ids')).read([
-    #             'id',
-    #             'name',
-    #             'display_name',
-    #             'location_id',
-    #             'owner_id',
-    #             'packaging_id',
-    #             'quant_ids',
-    #             'shipping_weight',
-    #             'weight',
-    #         ])
+    def get_barcode_view_state(self):
+        """ Return the initial state of the barcode view as a dict.
+        """
+        fields_to_read = self._get_picking_fields_to_read()
+        if type(fields_to_read) is list:
+            fields_to_read.append('package_ids')
+        pickings = self.read(fields_to_read)
+        for picking in pickings:
+            if 'package_ids' in picking:
+                picking['package_ids'] = self.env['stock.quant.package'].browse(picking.pop('package_ids')).read([
+                    'id',
+                    'name',
+                    'display_name',
+                    'location_id',
+                    'owner_id',
+                    'packaging_id',
+                    'quant_ids',
+                    'shipping_weight',
+                    'weight',
+                ])
 
-    #         picking['move_line_ids'] = self.env['stock.move.line'].browse(picking.pop('move_line_ids')).read([
-    #             'product_id',
-    #             'location_id',
-    #             'location_dest_id',
-    #             'qty_done',
-    #             'display_name',
-    #             'product_uom_qty',
-    #             'product_uom_id',
-    #             'product_barcode',
-    #             'owner_id',
-    #             'lot_id',
-    #             'lot_name',
-    #             'package_id',
-    #             'result_package_id',
-    #             'dummy_id',
-    #         ])
-    #         for move_line_id in picking['move_line_ids']:
-    #             move_line_id['product_id'] = self.env['product.product'].browse(move_line_id.pop('product_id')[0]).read([
-    #                 'id',
-    #                 'tracking',
-    #                 'barcode',
-    #             ])[0]
-    #             move_line_id['location_id'] = self.env['stock.location'].browse(move_line_id.pop('location_id')[0]).read([
-    #                 'id',
-    #                 'display_name',
-    #             ])[0]
-    #             move_line_id['location_dest_id'] = self.env['stock.location'].browse(move_line_id.pop('location_dest_id')[0]).read([
-    #                 'id',
-    #                 'display_name',
-    #             ])[0]
-    #         picking['location_id'] = self.env['stock.location'].browse(picking.pop('location_id')[0]).read([
-    #             'id',
-    #             'display_name',
-    #             'parent_path'
-    #         ])[0]
-    #         picking['location_dest_id'] = self.env['stock.location'].browse(picking.pop('location_dest_id')[0]).read([
-    #             'id',
-    #             'display_name',
-    #             'parent_path'
-    #         ])[0]
-    #         picking['group_stock_multi_locations'] = self.env.user.has_group(
-    #             'stock.group_stock_multi_locations')
-    #         picking['group_tracking_owner'] = self.env.user.has_group(
-    #             'stock.group_tracking_owner')
-    #         picking['group_tracking_lot'] = self.env.user.has_group(
-    #             'stock.group_tracking_lot')
-    #         picking['group_production_lot'] = self.env.user.has_group(
-    #             'stock.group_production_lot')
-    #         picking['group_uom'] = self.env.user.has_group('uom.group_uom')
-    #         picking['use_create_lots'] = self.env['stock.picking.type'].browse(
-    #             picking['picking_type_id'][0]).use_create_lots
-    #         picking['use_existing_lots'] = self.env['stock.picking.type'].browse(
-    #             picking['picking_type_id'][0]).use_existing_lots
-    #         picking['show_entire_packs'] = self.env['stock.picking.type'].browse(
-    #             picking['picking_type_id'][0]).show_entire_packs
-    #         picking['actionReportDeliverySlipId'] = self.env.ref(
-    #             'stock.action_report_delivery').id
-    #         if self.env.user.company_id.nomenclature_id:
-    #             picking['nomenclature_id'] = [
-    #                 self.env.user.company_id.nomenclature_id.id]
-    #     return pickings
+            picking['move_line_ids'] = self.env['stock.move.line'].browse(picking.pop('move_line_ids')).read([
+                'product_id',
+                'location_id',
+                'location_dest_id',
+                'qty_done',
+                'display_name',
+                'product_uom_qty',
+                'product_uom_id',
+                'product_barcode',
+                'owner_id',
+                'lot_id',
+                'lot_name',
+                'package_id',
+                'result_package_id',
+                'dummy_id',
+            ])
+            for move_line_id in picking['move_line_ids']:
+                move_line_id['product_id'] = self.env['product.product'].browse(move_line_id.pop('product_id')[0]).read([
+                    'id',
+                    'tracking',
+                    'barcode',
+                ])[0]
+                move_line_id['location_id'] = self.env['stock.location'].browse(move_line_id.pop('location_id')[0]).read([
+                    'id',
+                    'display_name',
+                ])[0]
+                move_line_id['location_dest_id'] = self.env['stock.location'].browse(move_line_id.pop('location_dest_id')[0]).read([
+                    'id',
+                    'display_name',
+                ])[0]
+            picking['location_id'] = self.env['stock.location'].browse(picking.pop('location_id')[0]).read([
+                'id',
+                'display_name',
+                'parent_path'
+            ])[0]
+            picking['location_dest_id'] = self.env['stock.location'].browse(picking.pop('location_dest_id')[0]).read([
+                'id',
+                'display_name',
+                'parent_path'
+            ])[0]
+            picking['group_stock_multi_locations'] = self.env.user.has_group(
+                'stock.group_stock_multi_locations')
+            picking['group_tracking_owner'] = self.env.user.has_group(
+                'stock.group_tracking_owner')
+            picking['group_tracking_lot'] = self.env.user.has_group(
+                'stock.group_tracking_lot')
+            picking['group_production_lot'] = self.env.user.has_group(
+                'stock.group_production_lot')
+            picking['group_uom'] = self.env.user.has_group('uom.group_uom')
+            picking['use_create_lots'] = self.env['stock.picking.type'].browse(
+                picking['picking_type_id'][0]).use_create_lots
+            picking['use_existing_lots'] = self.env['stock.picking.type'].browse(
+                picking['picking_type_id'][0]).use_existing_lots
+            picking['show_entire_packs'] = self.env['stock.picking.type'].browse(
+                picking['picking_type_id'][0]).show_entire_packs
+            picking['actionReportDeliverySlipId'] = self.env.ref(
+                'stock.action_report_delivery').id
+            picking['actionReportBarcodesZplId'] = self.env.ref(
+                'stock.action_label_transfer_template_zpl').id
+            picking['actionReportBarcodesPdfId'] = self.env.ref(
+                'stock.action_label_transfer_template_pdf').id
+            if self.env.company.nomenclature_id:
+                picking['nomenclature_id'] = [
+                    self.env.company.nomenclature_id.id]
+        return pickings
 
     @api.depends('move_type', 'move_lines.state', 'move_lines.picking_id')
     def _compute_state(self):
