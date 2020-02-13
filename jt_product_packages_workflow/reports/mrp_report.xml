@@ -165,6 +165,7 @@
             file="jt_product_packages_workflow.package_label_report_template"
             print_report_name="object.name"
             paperformat="jt_product_packages_workflow.package_label_report_paperformat"
+            menu="False"
         />
     </data>
 </odoo>

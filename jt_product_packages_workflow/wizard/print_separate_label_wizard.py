@@ -22,6 +22,7 @@
 ##############################################################################
 
 from odoo import models, fields, api
+from odoo.exceptions import ValidationError
 import base64
 
 
@@ -38,6 +39,8 @@ class PrintSeparateLabelWizard(models.TransientModel):
             MO = self.env['mrp.production'].browse(active_id)
             if MO:
                 domain = [('manufacturing_order_id', '=', MO.id)]
+            if self and self.manufacturing_order_id:
+                domain = [('manufacturing_order_id', '=', self.manufacturing_order_id.id)]
         return domain
 
     labels = fields.Many2many('package.sequence', string="Select Labels", domain=_check_domain)
@@ -47,6 +50,8 @@ class PrintSeparateLabelWizard(models.TransientModel):
     name = fields.Char('File Name')
     manufacturing_order_id = fields.Many2one(
         'mrp.production', string="Manufacturing Order")
+    start_range = fields.Char(string="Start Range")
+    end_range = fields.Char(string="End Range")
 
     @api.model
     def default_get(self, fields):
@@ -55,10 +60,48 @@ class PrintSeparateLabelWizard(models.TransientModel):
         active_id = ctx.get('active_id')
         MO = self.env['mrp.production'].browse(active_id)
         if MO:
+            sequences = MO.get_sequences()
+            if sequences:
+                result['start_range'] = sequences[0]
+                result['end_range'] = sequences[-1]
             result.update({
                 'manufacturing_order_id': MO.id,
             })
         return result
+
+    def add_labels_to_list(self):
+        self.ensure_one()
+        if not self.start_range or not self.end_range:
+            raise ValidationError("Please enter label range to add into label list")
+        labels = []
+        for sequence in range(int(self.start_range), int(self.end_range) + 1):
+            seq = str(sequence).zfill(4)
+            mo_sequence = self.env['package.sequence'].search([('sequence', '=', seq), ('manufacturing_order_id', '=', self.manufacturing_order_id.id)], limit=1)
+            if mo_sequence:
+                labels.append(mo_sequence.id)
+        self.write({'labels': [(6, 0, labels)]})
+
+        # Return to wizard
+        return {
+            'type': 'ir.actions.act_window',
+            'res_model': 'print.separate.label.wizard',
+            'view_mode': 'form',
+            'res_id': self.id,
+            'views': [(False, 'form')],
+            'target': 'new',
+        }
+
+    def clear_list(self):
+        self.labels = False
+        # Return to wizard
+        return {
+            'type': 'ir.actions.act_window',
+            'res_model': 'print.separate.label.wizard',
+            'view_mode': 'form',
+            'res_id': self.id,
+            'views': [(False, 'form')],
+            'target': 'new',
+        }
 
     def get_report(self):
         self.ensure_one()

@@ -296,16 +296,16 @@ class StockPicking(models.Model):
                     'id',
                     'display_name',
                 ])[0]
-            picking['location_id'] = self.env['stock.location'].browse(picking.pop('location_id')[0]).read([
-                'id',
-                'display_name',
-                'parent_path'
-            ])[0]
-            picking['location_dest_id'] = self.env['stock.location'].browse(picking.pop('location_dest_id')[0]).read([
-                'id',
-                'display_name',
-                'parent_path'
-            ])[0]
+            picking['location_id'] = self.env['stock.location'].browse(picking.pop('location_id')[0]).read()[0]  # .read([
+            #     'id',
+            #     'display_name',
+            #     'parent_path'
+            # ])[0]
+            picking['location_dest_id'] = self.env['stock.location'].browse(picking.pop('location_dest_id')[0]).read()[0]  # .read([
+            #     'id',
+            #     'display_name',
+            #     'parent_path'
+            # ])[0]
             picking['group_stock_multi_locations'] = self.env.user.has_group(
                 'stock.group_stock_multi_locations')
             picking['group_tracking_owner'] = self.env.user.has_group(

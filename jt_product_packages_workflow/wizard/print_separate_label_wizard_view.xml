@@ -7,11 +7,17 @@
             <field name="model">print.separate.label.wizard</field>
             <field name="arch" type="xml">
                 <form>
+                    <field name="state" invisible="1"/>
                     <group states="choose">
-                        <field name="state" invisible="1"/>
-                        <group>
-                            <field name="labels" widget="many2many_tags" string="Labels" required="1" attrs="{'invisible': [('report1', '!=', False)]}"/>
+                        <group attrs="{'invisible': [('report1', '!=', False)]}">
+                            <field name="start_range"/>
+                            <field name="end_range"/>
+                            <button class="oe_highlight" width="150px" string="Add To List" type="object" name="add_labels_to_list" attrs="{'invisible': [('report1', '!=', False)]}" style="margin-top: 0px;"/><br/>
+                            <button class="oe_highlight" width="150px" string="Clear List" type="object" name="clear_list" attrs="{'invisible': ['|', ('labels', '=', []) , ('report1', '!=', False)]}" style="margin-top: 10px;"/>
                         </group>
+                    </group>
+                    <group states="choose">
+                        <field name="labels" widget="many2many_tags" string="Labels" attrs="{'invisible': [('report1', '!=', False)]}"/>
                         <button class="oe_highlight" width="150px" string="Preview Labels" type="object" name="get_report" attrs="{'invisible': [('report1', '!=', False)]}"/><br/>
                     </group>
                     <field name="report1" filename="name" nolabel="1" widget="pdf_viewer" attrs="{'invisible': ['|', ('report1', '=', False), ('state', '=', 'get')]}"/>

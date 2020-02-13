@@ -20,7 +20,10 @@ odoo.define('jt_product_packages_workflow.picking_client_action', function (requ
             if (this.actionParams.model === 'stock.picking') {
                 this.$('.o_barcode_summary_location_src').toggleClass('o_barcode_summary_location_highlight', false);
                 this.$('.o_barcode_summary_location_dest').toggleClass('o_barcode_summary_location_highlight', false);
-                this.linesWidget._toggleScanMessage('scan_products');
+                if(this.linesWidget){
+                    this.currentStep = 'product';
+                    this.linesWidget._toggleScanMessage('scan_products');
+                }
             }
             return superr
         },
@@ -33,6 +36,7 @@ odoo.define('jt_product_packages_workflow.picking_client_action', function (requ
 
         start: function () {
             this._super.apply(this, arguments);
+
             if (this.actionParams.model === 'stock.picking') {
                 this.$('.o_barcode_summary_location_src').toggleClass('o_barcode_summary_location_highlight', false);
                 this.$('.o_barcode_summary_location_dest').toggleClass('o_barcode_summary_location_highlight', false);
@@ -120,10 +124,12 @@ odoo.define('jt_product_packages_workflow.picking_client_action', function (requ
                - the multi location group isn't active
             */
             if (sourceLocation  && ! (this.mode === 'receipt' || this.mode === 'no_multi_locations')) {
-                if (! isChildOf(this.currentState.location_id, sourceLocation)) {
+                const locationId = this._getLocationId();
+                if (locationId && !isChildOf(locationId, sourceLocation)) {
                     errorMessage = _t('This location is not a child of the main location.');
-                    return $.Deferred().reject(errorMessage);
+                    return Promise.reject(errorMessage);
                 } else {
+                    // There's nothing to do on the state here, just mark `this.scanned_location`.
                     linesActions.push([this.linesWidget.highlightLocation, [true]]);
                     if (this.actionParams.model === 'stock.picking') {
                         linesActions.push([this.linesWidget.highlightDestinationLocation, [false]]);
@@ -134,7 +140,7 @@ odoo.define('jt_product_packages_workflow.picking_client_action', function (requ
                         return this._step_product(barcode, linesActions);
                         // return this._step_package(barcode, linesActions);
                     }
-                    return $.when({linesActions: linesActions});
+                    return Promise.resolve({linesActions: linesActions});
                 }
             }
             /* Implicitely set the location source in the following cases:
@@ -154,15 +160,15 @@ odoo.define('jt_product_packages_workflow.picking_client_action', function (requ
             }
 
             return this._step_product(barcode, linesActions).then(function (res) {
-                return $.when({linesActions: res.linesActions});
+                return Promise.resolve({linesActions: res.linesActions});
             }, function (specializedErrorMessage) {
-                delete this.scanned_location;
-                this.currentStep = 'source';
+                delete self.scanned_location;
+                self.currentStep = 'source';
                 if (specializedErrorMessage){
-                    return $.Deferred().reject(specializedErrorMessage);
+                    return Promise.reject(specializedErrorMessage);
                 }
                 var errorMessage = _t('You are expected to scan a source location.');
-                return $.Deferred().reject(errorMessage);
+                return Promise.reject(errorMessage);
             });
         },
 
@@ -194,7 +200,7 @@ odoo.define('jt_product_packages_workflow.picking_client_action', function (requ
                 if (this.actionParams.model === 'stock.picking'){
                     line = this._findCandidateLineToIncrement({'product': product, 'barcode': barcode});
                     if (!line){
-                        return $.Deferred().reject(_t('This product is not a part of this order.'));
+                        return Promise.reject(_t('This product is not a part of this order.'));
                     }
                 }
                 var res = this._incrementLines({'product': product, 'barcode': barcode});
@@ -213,10 +219,10 @@ odoo.define('jt_product_packages_workflow.picking_client_action', function (requ
                             res.lineDescription.theoretical_qty = theoretical_qty;
                             linesActions.push([self.linesWidget.addProduct, [res.lineDescription, self.actionParams.model]]);
                             self.scannedLines.push(res.id || res.virtualId);
-                            return $.when({linesActions: linesActions});
+                            return Promise.resolve({linesActions: linesActions});
                         });
                     } else {
-                        return $.Deferred().reject(_t('This product is not a part of this order.'));
+                        return Promise.reject(_t('This product is not a part of this order.'));
                         // linesActions.push([this.linesWidget.addProduct, [res.lineDescription, this.actionParams.model]]);
                     }
                 } else {
@@ -263,15 +269,15 @@ odoo.define('jt_product_packages_workflow.picking_client_action', function (requ
                     }
                 }
                 this.scannedLines.push(res.id || res.virtualId);
-                return $.when({linesActions: linesActions});
+                return Promise.resolve({linesActions: linesActions});
             } else {
                 var success = function (res) {
-                    return $.when({linesActions: res.linesActions});
+                    return Promise.resolve({linesActions: res.linesActions});
                 };
                 var fail = function (specializedErrorMessage) {
                     this.currentStep = 'product';
                     if (specializedErrorMessage){
-                        return $.Deferred().reject(specializedErrorMessage);
+                        return Promise.reject(specializedErrorMessage);
                     }
                     if (! self.scannedLines.length) {
                         if (self.groups.group_tracking_lot) {
@@ -279,7 +285,7 @@ odoo.define('jt_product_packages_workflow.picking_client_action', function (requ
                         } else {
                             errorMessage = _t('You are expected to scan one or more products.');
                         }
-                        return $.Deferred().reject(errorMessage);
+                        return Promise.reject(errorMessage);
                     }
 
                     var destinationLocation = self.locationsByBarcode[barcode];
@@ -287,7 +293,7 @@ odoo.define('jt_product_packages_workflow.picking_client_action', function (requ
                         return self._step_destination(barcode, linesActions);
                     } else {
                         errorMessage = _t('You are expected to scan more products or a destination location.');
-                        return $.Deferred().reject(errorMessage);
+                        return Promise.reject(errorMessage);
                     }
                 };
                 return self._step_lot(barcode, linesActions).then(success, function () {
@@ -316,12 +322,12 @@ odoo.define('jt_product_packages_workflow.picking_client_action', function (requ
             }
 
             if (! this.groups.group_tracking_lot) {
-                return $.Deferred().reject();
+                return Promise.reject();
             }
             this.currentStep = 'product';
             var destinationLocation = this.locationsByBarcode[barcode];
             if (destinationLocation) {
-                return $.Deferred().reject();
+                return Promise.reject();
             }
 
             var self = this;
@@ -355,11 +361,12 @@ odoo.define('jt_product_packages_workflow.picking_client_action', function (requ
                 var expectedNumberOfLines = quants.length;
                 var currentNumberOfLines = 0;
 
+                var qtyField = self.actionParams.model === 'stock.inventory' ? "product_qty" : "qty_done";
                 var currentPage = self.pages[self.currentPageIndex];
                 for (var i=0; i < currentPage.lines.length; i++) {
                     var currentLine = currentPage.lines[i];
                     // FIXME sle: float_compare?
-                    if (currentLine.package_id && currentLine.package_id[0] === package_id && currentLine.qty_done > 0) {
+                    if (currentLine.package_id && currentLine.package_id[0] === package_id && currentLine[qtyField] > 0) {
                         currentNumberOfLines += 1;
                     }
                 }
@@ -368,7 +375,7 @@ odoo.define('jt_product_packages_workflow.picking_client_action', function (requ
             return search_read_quants().then(function (packages) {
                 if (packages.length) {
                     if (! self.packages.includes(barcode)){
-                        return $.Deferred().reject(_t('You are not allowed to add different package than order.'));
+                        return Promise.reject(_t('You are not allowed to add different package than order.'));
                     }
                     else{
                         return self.do_action(action_backorder_wizard);
@@ -378,7 +385,7 @@ odoo.define('jt_product_packages_workflow.picking_client_action', function (requ
                     return get_contained_quants(packages[0].id).then(function (quants) {
                         var packageAlreadyScanned = package_already_scanned(packages[0].id, quants);
                         if (packageAlreadyScanned) {
-                            return $.Deferred().reject(_t('This package is already scanned.'));
+                            return Promise.reject(_t('This package is already scanned.'));
                         }
                         var products_without_barcode = _.map(quants, function (quant) {
                             if (! (quant.product_id[0] in self.productsByBarcode)) {
@@ -387,11 +394,11 @@ odoo.define('jt_product_packages_workflow.picking_client_action', function (requ
                         });
                         return read_products(products_without_barcode).then(function (products_without_barcode) {
                             _.each(quants, function (quant) {
-                                // FIXME sle: not optimal
+                            // FIXME sle: not optimal
                                 var product_barcode = _.findKey(self.productsByBarcode, function (product) {
                                     return product.id === quant.product_id[0];
                                 });
-                                var product = self.productsByBarcode[product_barcode];
+                                var product = _.clone(self.productsByBarcode[product_barcode]);
                                 if (! product) {
                                     var product_key = _.findKey(products_without_barcode, function (product) {
                                         return product.id === quant.product_id[0];
@@ -399,7 +406,6 @@ odoo.define('jt_product_packages_workflow.picking_client_action', function (requ
                                     product = products_without_barcode[product_key];
                                 }
                                 product.qty = quant.quantity;
-
                                 var res = self._incrementLines({
                                     product: product,
                                     barcode: product_barcode,
@@ -418,11 +424,11 @@ odoo.define('jt_product_packages_workflow.picking_client_action', function (requ
                                     }
                                 }
                             });
-                            return $.when({linesActions: linesActions});
+                            return Promise.resolve({linesActions: linesActions});
                         });
                     });
                 } else {
-                    return $.Deferred().reject();
+                    return Promise.reject();
                 }
             });
         },
@@ -439,11 +445,14 @@ odoo.define('jt_product_packages_workflow.picking_client_action', function (requ
                         'args': [[self.actionParams.pickingId]],
                         'context': context,
                     }).then(function (res) {
-                        var def = $.when();
+                        var def = Promise.resolve();
+                        var successCallback = function(){
+                            self.do_notify(_t("Success"), _t("The transfer has been validated"));
+                            self.trigger_up('exit');
+                        };
                         var exitCallback = function (infos) {
-                            if (infos !== 'special') {
-                                self.do_notify(_t("Success"), _t("The transfer has been validated"));
-                                self.trigger_up('exit');
+                            if (infos && !infos.special && this.dialog.$modal.is(':visible')) {
+                                successCallback();
                             }
                             core.bus.on('barcode_scanned', self, self._onBarcodeScannedHandler);
                         };
@@ -456,9 +465,7 @@ odoo.define('jt_product_packages_workflow.picking_client_action', function (requ
                                 return self.do_action(res, options);
                             });
                         } else {
-                            return def.then(function () {
-                                return exitCallback();
-                            });
+                            return def.then(successCallback);
                         }
                     });
                 });
