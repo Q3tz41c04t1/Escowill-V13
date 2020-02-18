@@ -14,7 +14,6 @@ odoo.define('jt_product_packages_workflow.picking_client_action', function (requ
     }
 
     var PickingClientAction = PickingAction.extend({
-
         _onBarcodeScanned: function (barcode) {
             var superr = this._super.apply(this, arguments);
             if (this.actionParams.model === 'stock.picking') {
@@ -36,14 +35,12 @@ odoo.define('jt_product_packages_workflow.picking_client_action', function (requ
 
         start: function () {
             this._super.apply(this, arguments);
-
             if (this.actionParams.model === 'stock.picking') {
                 this.$('.o_barcode_summary_location_src').toggleClass('o_barcode_summary_location_highlight', false);
                 this.$('.o_barcode_summary_location_dest').toggleClass('o_barcode_summary_location_highlight', false);
                 if(this.linesWidget){
                     this.linesWidget._toggleScanMessage('scan_products');
                 }
-
                 // To sore packages barcodes as global
                 this.packages = []
                 for(var i in this.currentState.package_ids){
@@ -106,6 +103,7 @@ odoo.define('jt_product_packages_workflow.picking_client_action', function (requ
         },
 
         _step_source: function(barcode, linesActions) {
+            var self = this;
             this.currentStep = 'source';
             var errorMessage;
 
@@ -248,13 +246,11 @@ odoo.define('jt_product_packages_workflow.picking_client_action', function (requ
                             this.do_action(action_backorder_wizard);
                             linesActions.push([this.linesWidget.incrementProduct, [res.id || res.virtualId, product.qty || 1, this.actionParams.model]]);
                         }
-
                     } else {
                         if (this.actionParams.model === 'stock.picking'){
                             if (qty_done < product_uom_qty){
                                 this.do_action(action_backorder_wizard);
                                 linesActions.push([this.linesWidget.incrementProduct, [res.id || res.virtualId, 0, this.actionParams.model]]);
-
                                 if (res['lineDescription']['qty_done'] == product_uom_qty){
                                     return this._step_destination(this.location_dest_barcode, linesActions);
                                 }
@@ -270,12 +266,13 @@ odoo.define('jt_product_packages_workflow.picking_client_action', function (requ
                 }
                 this.scannedLines.push(res.id || res.virtualId);
                 return Promise.resolve({linesActions: linesActions});
-            } else {
+            }
+            else {
                 var success = function (res) {
                     return Promise.resolve({linesActions: res.linesActions});
                 };
                 var fail = function (specializedErrorMessage) {
-                    this.currentStep = 'product';
+                    self.currentStep = 'product';
                     if (specializedErrorMessage){
                         return Promise.reject(specializedErrorMessage);
                     }
@@ -287,7 +284,6 @@ odoo.define('jt_product_packages_workflow.picking_client_action', function (requ
                         }
                         return Promise.reject(errorMessage);
                     }
-
                     var destinationLocation = self.locationsByBarcode[barcode];
                     if (destinationLocation) {
                         return self._step_destination(barcode, linesActions);
@@ -432,7 +428,6 @@ odoo.define('jt_product_packages_workflow.picking_client_action', function (requ
                 }
             });
         },
-
         _validate: function () {
             var self = this;
             this.mutex.exec(function () {
@@ -472,9 +467,5 @@ odoo.define('jt_product_packages_workflow.picking_client_action', function (requ
             });
         },
     });
-
     core.action_registry.add('stock_barcode_picking_client_action', PickingClientAction);
-
-    // return PickingClientAction;
-
 });
