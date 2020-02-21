@@ -334,27 +334,28 @@ class StockPicking(models.Model):
 
     @api.depends('move_type', 'move_lines.state', 'move_lines.picking_id')
     def _compute_state(self):
-        if not self.move_lines:
-            self.state = 'draft'
-        elif any(move.state == 'draft' for move in self.move_lines):  # TDE FIXME: should be all ?
-            self.state = 'draft'
-        elif all(move.state == 'cancel' for move in self.move_lines):
-            self.state = 'cancel'
-        elif all(move.state in ['cancel', 'done'] for move in self.move_lines):
-            self.state = 'done'
-        else:
-            relevant_move_state = self.move_lines._get_relevant_state_among_moves()
-            if relevant_move_state == 'partially_available':
-                self.state = 'assigned'
+        for picking in self:
+            if not picking.move_lines:
+                picking.state = 'draft'
+            elif any(move.state == 'draft' for move in picking.move_lines):  # TDE FIXME: should be all ?
+                picking.state = 'draft'
+            elif all(move.state == 'cancel' for move in picking.move_lines):
+                picking.state = 'cancel'
+            elif all(move.state in ['cancel', 'done'] for move in picking.move_lines):
+                picking.state = 'done'
             else:
-                if self.sale_id:
-                    order = self.sale_id
-                    if order.warehouse_id.delivery_steps == 'pick_pack_ship' and self.picking_type_code == 'outgoing':
-                        self.state = 'waiting'
-                    else:
-                        self.state = relevant_move_state
+                relevant_move_state = picking.move_lines._get_relevant_state_among_moves()
+                if relevant_move_state == 'partially_available':
+                    picking.state = 'assigned'
                 else:
-                    self.state = relevant_move_state
+                    if picking.sale_id:
+                        order = picking.sale_id
+                        if order.warehouse_id.delivery_steps == 'pick_pack_ship' and picking.picking_type_code == 'outgoing':
+                            picking.state = 'waiting'
+                        else:
+                            picking.state = relevant_move_state
+                    else:
+                        picking.state = relevant_move_state
 
 
 # Overide count transfer orders for inventory dashboard to count only
